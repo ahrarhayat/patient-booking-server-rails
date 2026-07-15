@@ -1,0 +1,33 @@
+<%
+  # Keep tests on patient_booking_rails_test even when .env sets DATABASE_URL
+  # for local Docker development.
+  ENV.delete("DATABASE_URL") if ENV["RAILS_ENV"] == "test"
+%>
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  <% if ENV["DATABASE_URL"].present? %>
+  url: <%= ENV["DATABASE_URL"] %>
+  <% else %>
+  database: patient_booking_rails_development
+  host: localhost
+  port: 5434
+  username: booking
+  password: booking
+  <% end %>
+
+test:
+  <<: *default
+  database: patient_booking_rails_test
+  host: localhost
+  port: 5434
+  username: booking
+  password: booking
+
+production:
+  <<: *default
+  url: <%= ENV["DATABASE_URL"] %>
