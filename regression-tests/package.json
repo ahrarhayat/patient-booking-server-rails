@@ -1,0 +1,14 @@
+{
+  "name": "regression-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright API regression tests for patient-booking-server-rails",
+  "scripts": {
+    "test": "playwright test",
+    "test:get": "playwright test tests/get-endpoints.spec.ts",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

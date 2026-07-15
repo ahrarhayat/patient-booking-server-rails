@@ -24,3 +24,8 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+# Playwright regression suite artifacts (see regression-tests/.gitignore)
+/regression-tests/node_modules/
+/regression-tests/test-results/
+/regression-tests/playwright-report/
+
