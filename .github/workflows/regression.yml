@@ -1,0 +1,86 @@
+name: Regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  playwright:
+    name: Playwright API regression
+    runs-on: ubuntu-latest
+
+    env:
+      RAILS_ENV: development
+      PORT: "3003"
+      DATABASE_URL: postgresql://booking:booking@localhost:5434/patient_booking_rails
+      SECRET_KEY_BASE: ci-regression-secret-key-base-not-for-production
+      API_BASE_URL: http://localhost:3003
+      CI: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Start PostgreSQL (Docker Compose)
+        run: docker compose up -d --wait
+
+      - name: Prepare and seed database
+        run: bin/rails db:prepare db:seed
+
+      - name: Start Rails server
+        run: |
+          bin/rails server -b 127.0.0.1 -p "$PORT" &
+          echo $! > tmp/rails-server.pid
+
+      - name: Wait for Rails health check
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "$API_BASE_URL/health" >/dev/null; then
+              echo "Rails server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Rails server failed to become ready" >&2
+          exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: regression-tests/yarn.lock
+
+      - name: Enable Yarn (Corepack)
+        run: |
+          corepack enable
+          corepack prepare yarn@4.17.0 --activate
+
+      - name: Install regression-test dependencies
+        working-directory: regression-tests
+        run: yarn install --immutable
+
+      - name: Run Playwright tests
+        working-directory: regression-tests
+        run: yarn test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: regression-tests/playwright-report/
+          retention-days: 7
+
+      - name: Stop Rails server
+        if: always()
+        run: |
+          if [ -f tmp/rails-server.pid ]; then
+            kill "$(cat tmp/rails-server.pid)" || true
+          fi

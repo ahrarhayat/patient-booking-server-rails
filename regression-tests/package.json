@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Playwright API regression tests for patient-booking-server-rails",
+  "packageManager": "yarn@4.17.0",
   "scripts": {
     "test": "playwright test",
     "test:get": "playwright test tests/get-endpoints.spec.ts",
