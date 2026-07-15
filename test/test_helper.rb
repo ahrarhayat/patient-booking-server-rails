@@ -5,7 +5,9 @@ require "rails/test_help"
 
 module ActiveSupport
   class TestCase
-    parallelize(workers: :number_of_processors)
+    # Integration tests use fixed unique emails/names; parallel DBs are easy
+    # to misconfigure with Docker Postgres and produce uniqueness collisions.
+    parallelize(workers: 1)
     fixtures :all
   end
 end

@@ -12,14 +12,14 @@ end
 class AuthApiTest < ActionDispatch::IntegrationTest
   setup do
     @clinician = Clinician.create!(
-      name: "Dr. Sam",
-      email: "sam@clinic.example.com",
+      name: "Dr. Sam Auth",
+      email: "sam-auth@clinic.example.com",
       password: "password123",
       role: :clinician
     )
     @admin = Clinician.create!(
-      name: "Admin",
-      email: "admin@clinic.example.com",
+      name: "Admin Auth",
+      email: "admin-auth@clinic.example.com",
       password: "admin123",
       role: :admin
     )
