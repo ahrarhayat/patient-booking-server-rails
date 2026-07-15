@@ -122,7 +122,7 @@ end
 puts "Seeded patient-booking-rails database"
 puts "VITE_DEFAULT_PATIENT_ID=#{DEFAULT_PATIENT_ID}"
 puts "VITE_DEFAULT_CLINICIAN_ID=#{DEFAULT_CLINICIAN_NAME}"
-puts "Login (clinician): name=#{DEFAULT_CLINICIAN_NAME} password=#{DEFAULT_PASSWORD}"
-puts "Login (admin): name=#{ADMIN[:name]} password=#{ADMIN_PASSWORD}"
+puts "Login (clinician): email=#{CLINICIANS.first[:email]} password=#{DEFAULT_PASSWORD}"
+puts "Login (admin): email=#{ADMIN[:email]} password=#{ADMIN_PASSWORD}"
 puts "Clinicians:"
 CLINICIANS.each { |clinician| puts "  - #{clinician[:name]}" }

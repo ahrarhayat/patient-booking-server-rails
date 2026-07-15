@@ -17,6 +17,14 @@ module BookingJson
     }
   end
 
+  def patient(patient)
+    {
+      id: patient.id,
+      name: patient.name,
+      email: patient.email
+    }
+  end
+
   def slot(slot)
     {
       id: slot.id,
@@ -32,9 +40,11 @@ module BookingJson
     {
       id: appointment.id,
       patientId: appointment.patient_id,
+      patientName: appointment.patient.name,
       slotId: appointment.slot_id,
       createdAt: appointment.created_at.utc.iso8601(3),
       slot: slot(appointment.slot)
     }
   end
 end
+

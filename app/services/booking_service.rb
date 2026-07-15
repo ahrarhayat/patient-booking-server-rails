@@ -4,6 +4,10 @@ class BookingService
       Clinician.bookable.map { |clinician| BookingJson.clinician(clinician) }
     end
 
+    def list_patients
+      Patient.order(:name).map { |patient| BookingJson.patient(patient) }
+    end
+
     def list_available_slots(clinician_name, from, to)
       clinician = Clinician.bookable.find_by(name: clinician_name)
       raise AppError.new("clinician not found", status: :not_found) if clinician.nil?
@@ -33,7 +37,7 @@ class BookingService
         end
 
         appointment = Appointment.create!(patient_id: patient_id, slot_id: slot_id)
-        appointment = Appointment.includes(slot: :clinician).find(appointment.id)
+        appointment = Appointment.includes(:patient, slot: :clinician).find(appointment.id)
         BookingJson.appointment(appointment)
       end
     end
@@ -52,7 +56,7 @@ class BookingService
     end
 
     def list_patient_appointments(actor:, patient_id:)
-      scope = Appointment.includes(slot: :clinician)
+      scope = Appointment.includes(:patient, slot: :clinician)
                         .joins(:slot)
                         .where(patient_id: patient_id)
                         .where(slots: { start_time: Time.current.. })

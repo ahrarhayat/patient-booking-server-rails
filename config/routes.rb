@@ -10,6 +10,8 @@ Rails.application.routes.draw do
   get "appointments", to: "appointments#index"
   post "appointments", to: "appointments#create"
   delete "appointments/:id", to: "appointments#destroy"
+  get "patients", to: "patients#index"
+  post "patients", to: "patients#create"
   get "patients/:patient_id/appointments", to: "patients/appointments#index"
 
   match "*path", to: "application#route_not_found", via: :all
