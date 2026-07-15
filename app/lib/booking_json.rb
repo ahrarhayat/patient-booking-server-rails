@@ -8,6 +8,15 @@ module BookingJson
     }
   end
 
+  def authenticated_clinician(clinician)
+    {
+      id: clinician.id,
+      name: clinician.name,
+      email: clinician.email,
+      role: clinician.role
+    }
+  end
+
   def slot(slot)
     {
       id: slot.id,

@@ -10,6 +10,7 @@ Runs on port **3003** by default so it can sit alongside the Express server on 3
 - PostgreSQL
 - Puma
 - rack-cors
+- bcrypt (`has_secure_password`) auth tokens
 
 ## Quick start
 
@@ -23,6 +24,36 @@ bin/dev
 ```
 
 Server listens on [http://localhost:3003](http://localhost:3003).
+
+## Auth
+
+Login with **clinician name + password**. Responses include a Bearer token (valid 24h).
+
+Seeded accounts:
+
+| Name | Password | Role |
+|------|----------|------|
+| `Dr. Sam Clinician` | `password123` | clinician |
+| `Admin` | `admin123` | admin |
+
+```bash
+curl -X POST http://localhost:3003/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Admin","password":"admin123"}'
+```
+
+Use the token on protected routes:
+
+```bash
+curl http://localhost:3003/appointments \
+  -H "Authorization: Bearer <token>"
+```
+
+**Access rules**
+
+- **Clinician** — book/cancel/list appointments only for their own slots
+- **Admin** — full access to all appointments and slots
+- **Public** — `GET /health`, `GET /clinicians`, `GET /clinicians/:name/slots`
 
 ## Connect to patient-booking frontend
 
@@ -40,26 +71,68 @@ Server listens on [http://localhost:3003](http://localhost:3003).
 
 Vite proxies `/api/*` to `VITE_API_URL` and strips the `/api` prefix.
 
+Booking/cancel/appointment list calls need a staff login token once the frontend is wired for auth.
+
 ## API surface
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/health` | Health check |
-| GET | `/clinicians` | List clinicians |
-| GET | `/clinicians/:name/slots?from=&to=` | Available slots (lookup by clinician name) |
-| POST | `/appointments` | Book `{ patientId, slotId }` |
-| DELETE | `/appointments/:id` | Cancel appointment |
-| GET | `/patients/:id/appointments` | Patient's upcoming appointments |
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/health` | no | Health check |
+| POST | `/auth/login` | no | `{ name, password }` → `{ token, clinician }` |
+| GET | `/auth/me` | yes | Current clinician/admin |
+| GET | `/clinicians` | no | List bookable clinicians |
+| POST | `/clinicians` | admin | Create `{ name, email, password, role? }` |
+| GET | `/clinicians/:name/slots?from=&to=` | no | Available slots |
+| GET | `/appointments` | yes | Appointments (own / all for admin) |
+| POST | `/appointments` | yes | Book `{ patientId, slotId }` |
+| DELETE | `/appointments/:id` | yes | Cancel appointment |
+| GET | `/patients/:id/appointments` | yes | Patient's upcoming appointments |
 
 ## Project layout
 
 ```
 app/
-  controllers/       # HTTP layer
-  services/          # Booking business logic
+  controllers/       # HTTP layer (+ auth)
+  services/          # Booking + auth business logic
   models/            # ActiveRecord models
   lib/booking_json.rb
   errors/app_error.rb
+```
+
+## Query the database
+
+Connection string (local Docker):
+
+```text
+postgresql://booking:booking@localhost:5434/patient_booking_rails
+```
+
+### Rails console
+
+```bash
+bin/rails console
+```
+
+```ruby
+Clinician.all
+Clinician.find_by(name: "Admin")
+Clinician.pluck(:name, :role)
+
+Patient.all
+Slot.where(is_available: true).count
+Appointment.includes(:patient, :slot).all
+```
+
+### Postgres (psql)
+
+```bash
+docker compose exec db psql -U booking -d patient_booking_rails
+```
+
+```sql
+SELECT id, name, email, role FROM clinicians;
+SELECT * FROM appointments;
+SELECT * FROM slots WHERE is_available = true ORDER BY start_time;
 ```
 
 ## Scripts
@@ -70,3 +143,4 @@ app/
 | `bin/rails db:up` | Start local Postgres via Docker |
 | `bin/rails db:down` | Stop Docker Postgres |
 | `bin/rails test` | Run tests |
+| `bin/rails console` | Open Rails console against the DB |

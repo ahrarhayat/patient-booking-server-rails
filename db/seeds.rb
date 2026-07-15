@@ -1,4 +1,14 @@
 DEFAULT_PATIENT_ID = "a0000000-0000-4000-8000-000000000001"
+DEFAULT_PASSWORD = "password123"
+ADMIN_PASSWORD = "admin123"
+
+ADMIN = {
+  id: "b0000000-0000-4000-8000-000000000099",
+  name: "Admin",
+  email: "admin@clinic.example.com",
+  role: :admin,
+  password: ADMIN_PASSWORD
+}.freeze
 
 CLINICIANS = [
   {
@@ -52,6 +62,16 @@ def create_slot_seed(id, clinician_id, day_offset, start_hour, duration_minutes)
   }
 end
 
+def upsert_clinician!(attrs)
+  Clinician.find_or_initialize_by(id: attrs[:id]).tap do |clinician|
+    clinician.name = attrs[:name]
+    clinician.email = attrs[:email]
+    clinician.role = attrs.fetch(:role, :clinician)
+    clinician.password = attrs.fetch(:password, DEFAULT_PASSWORD)
+    clinician.save!
+  end
+end
+
 # Each clinician gets a few available slots over the next few days.
 slot_seeds = [
   # Dr. Sam Clinician
@@ -89,13 +109,8 @@ Patient.find_or_initialize_by(id: DEFAULT_PATIENT_ID).tap do |patient|
   patient.save!
 end
 
-CLINICIANS.each do |attrs|
-  Clinician.find_or_initialize_by(id: attrs[:id]).tap do |clinician|
-    clinician.name = attrs[:name]
-    clinician.email = attrs[:email]
-    clinician.save!
-  end
-end
+upsert_clinician!(ADMIN)
+CLINICIANS.each { |attrs| upsert_clinician!(attrs) }
 
 slot_seeds.each do |attrs|
   Slot.find_or_initialize_by(id: attrs[:id]).tap do |slot|
@@ -107,5 +122,7 @@ end
 puts "Seeded patient-booking-rails database"
 puts "VITE_DEFAULT_PATIENT_ID=#{DEFAULT_PATIENT_ID}"
 puts "VITE_DEFAULT_CLINICIAN_ID=#{DEFAULT_CLINICIAN_NAME}"
+puts "Login (clinician): name=#{DEFAULT_CLINICIAN_NAME} password=#{DEFAULT_PASSWORD}"
+puts "Login (admin): name=#{ADMIN[:name]} password=#{ADMIN_PASSWORD}"
 puts "Clinicians:"
 CLINICIANS.each { |clinician| puts "  - #{clinician[:name]}" }

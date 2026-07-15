@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::API
   include ErrorHandling
+  include Authentication
 
   rescue_from StandardError, with: :render_internal_error unless Rails.env.local?
 

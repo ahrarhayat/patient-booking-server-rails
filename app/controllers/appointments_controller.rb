@@ -1,9 +1,22 @@
 class AppointmentsController < ApplicationController
+  before_action :require_authentication!
+
+  def index
+    appointments = BookingService.list_appointments(actor: current_clinician)
+    render json: appointments
+  rescue AppError
+    raise
+  rescue StandardError => error
+    Rails.logger.error("Failed to fetch appointments: #{error.full_message}")
+    raise AppError.new("Failed to fetch appointments", status: :service_unavailable)
+  end
+
   def create
     errors = validate_book_appointment_body
     raise AppError.new("Validation failed", status: :bad_request, details: errors) if errors.any?
 
     appointment = BookingService.book_appointment(
+      actor: current_clinician,
       patient_id: params.require(:patientId),
       slot_id: params.require(:slotId)
     )
@@ -16,7 +29,7 @@ class AppointmentsController < ApplicationController
   end
 
   def destroy
-    BookingService.cancel_appointment(params[:id])
+    BookingService.cancel_appointment(actor: current_clinician, appointment_id: params[:id])
     head :no_content
   rescue AppError
     raise

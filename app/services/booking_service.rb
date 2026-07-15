@@ -1,11 +1,11 @@
 class BookingService
   class << self
     def list_clinicians
-      Clinician.order(:name).map { |clinician| BookingJson.clinician(clinician) }
+      Clinician.bookable.map { |clinician| BookingJson.clinician(clinician) }
     end
 
     def list_available_slots(clinician_name, from, to)
-      clinician = Clinician.find_by(name: clinician_name)
+      clinician = Clinician.bookable.find_by(name: clinician_name)
       raise AppError.new("clinician not found", status: :not_found) if clinician.nil?
 
       Slot.where(clinician_id: clinician.id, is_available: true)
@@ -15,7 +15,7 @@ class BookingService
           .map { |slot| BookingJson.slot(slot) }
     end
 
-    def book_appointment(patient_id:, slot_id:)
+    def book_appointment(actor:, patient_id:, slot_id:)
       Appointment.transaction do
         unless Patient.exists?(id: patient_id)
           raise AppError.new("patient not found", status: :not_found)
@@ -25,6 +25,8 @@ class BookingService
         if slot.nil? || !slot.is_available?
           raise AppError.new("slot no longer available", status: :conflict)
         end
+
+        assert_slot_access!(actor, slot.clinician_id)
 
         unless claim_slot!(slot)
           raise AppError.new("slot no longer available", status: :conflict)
@@ -36,10 +38,12 @@ class BookingService
       end
     end
 
-    def cancel_appointment(appointment_id)
+    def cancel_appointment(actor:, appointment_id:)
       Appointment.transaction do
-        appointment = Appointment.find_by(id: appointment_id)
+        appointment = Appointment.includes(:slot).find_by(id: appointment_id)
         raise AppError.new("appointment not found", status: :not_found) if appointment.nil?
+
+        assert_slot_access!(actor, appointment.slot.clinician_id)
 
         slot_id = appointment.slot_id
         appointment.destroy!
@@ -47,16 +51,36 @@ class BookingService
       end
     end
 
-    def list_patient_appointments(patient_id)
-      Appointment.includes(slot: :clinician)
-                 .joins(:slot)
-                 .where(patient_id: patient_id)
-                 .where(slots: { start_time: Time.current.. })
-                 .order("slots.start_time ASC")
-                 .map { |appointment| BookingJson.appointment(appointment) }
+    def list_patient_appointments(actor:, patient_id:)
+      scope = Appointment.includes(slot: :clinician)
+                        .joins(:slot)
+                        .where(patient_id: patient_id)
+                        .where(slots: { start_time: Time.current.. })
+                        .order("slots.start_time ASC")
+
+      scope = scope.where(slots: { clinician_id: actor.id }) unless actor.admin?
+
+      scope.map { |appointment| BookingJson.appointment(appointment) }
+    end
+
+    def list_appointments(actor:)
+      scope = Appointment.includes(:patient, slot: :clinician)
+                        .joins(:slot)
+                        .order("slots.start_time ASC")
+
+      scope = scope.where(slots: { clinician_id: actor.id }) unless actor.admin?
+
+      scope.map { |appointment| BookingJson.appointment(appointment) }
     end
 
     private
+
+    def assert_slot_access!(actor, clinician_id)
+      return if actor.admin?
+      return if actor.id == clinician_id
+
+      raise AppError.new("forbidden", status: :forbidden)
+    end
 
     def claim_slot!(slot)
       Slot.where(id: slot.id, version: slot.version, is_available: true)
