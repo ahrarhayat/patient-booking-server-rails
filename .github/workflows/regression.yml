@@ -2,8 +2,6 @@ name: Regression
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 jobs:
   playwright:
