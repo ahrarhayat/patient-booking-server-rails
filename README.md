@@ -27,19 +27,19 @@ Server listens on [http://localhost:3003](http://localhost:3003).
 
 ## Auth
 
-Login with **clinician name + password**. Responses include a Bearer token (valid 24h).
+Login with **clinician email + password**. Responses include a Bearer token (valid 24h).
 
 Seeded accounts:
 
-| Name | Password | Role |
-|------|----------|------|
-| `Dr. Sam Clinician` | `password123` | clinician |
-| `Admin` | `admin123` | admin |
+| Email | Password | Role |
+|-------|----------|------|
+| `sam@clinic.example.com` | `password123` | clinician |
+| `admin@clinic.example.com` | `admin123` | admin |
 
 ```bash
 curl -X POST http://localhost:3003/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Admin","password":"admin123"}'
+  -d '{"email":"admin@clinic.example.com","password":"admin123"}'
 ```
 
 Use the token on protected routes:
@@ -78,7 +78,7 @@ Booking/cancel/appointment list calls need a staff login token once the frontend
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/health` | no | Health check |
-| POST | `/auth/login` | no | `{ name, password }` → `{ token, clinician }` |
+| POST | `/auth/login` | no | `{ email, password }` → `{ token, clinician }` |
 | GET | `/auth/me` | yes | Current clinician/admin |
 | GET | `/clinicians` | no | List bookable clinicians |
 | POST | `/clinicians` | admin | Create `{ name, email, password, role? }` |
@@ -86,6 +86,8 @@ Booking/cancel/appointment list calls need a staff login token once the frontend
 | GET | `/appointments` | yes | Appointments (own / all for admin) |
 | POST | `/appointments` | yes | Book `{ patientId, slotId }` |
 | DELETE | `/appointments/:id` | yes | Cancel appointment |
+| GET | `/patients` | yes | List patients (`id`, `name`, `email`) |
+| POST | `/patients` | yes | Create `{ name, email }` |
 | GET | `/patients/:id/appointments` | yes | Patient's upcoming appointments |
 
 ## Project layout
@@ -144,3 +146,17 @@ SELECT * FROM slots WHERE is_available = true ORDER BY start_time;
 | `bin/rails db:down` | Stop Docker Postgres |
 | `bin/rails test` | Run tests |
 | `bin/rails console` | Open Rails console against the DB |
+
+## Regression tests (Playwright)
+
+API regression suite lives in [`regression-tests/`](./regression-tests). For now it covers **GET** endpoints only (no writes that populate the DB). Login is used only to obtain a Bearer token for protected GETs.
+
+Prerequisites: server running on port 3003 with a seeded database (`bin/dev`).
+
+```bash
+cd regression-tests
+yarn install
+yarn test
+```
+
+Optional env overrides: `API_BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEFAULT_CLINICIAN_NAME`, `DEFAULT_PATIENT_ID`.

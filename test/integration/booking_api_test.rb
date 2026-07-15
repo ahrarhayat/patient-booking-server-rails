@@ -25,21 +25,22 @@ class AuthApiTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "logs in with clinician name and password" do
-    post "/auth/login", params: { name: @clinician.name, password: "password123" }, as: :json
+  test "logs in with clinician email and password" do
+    post "/auth/login", params: { email: @clinician.email, password: "password123" }, as: :json
 
     assert_response :success
     body = JSON.parse(response.body)
     assert body["token"].present?
     assert_equal @clinician.name, body["clinician"]["name"]
+    assert_equal @clinician.email, body["clinician"]["email"]
     assert_equal "clinician", body["clinician"]["role"]
   end
 
   test "rejects invalid credentials" do
-    post "/auth/login", params: { name: @clinician.name, password: "wrong-password" }, as: :json
+    post "/auth/login", params: { email: @clinician.email, password: "wrong-password" }, as: :json
 
     assert_response :unauthorized
-    assert_equal "invalid name or password", JSON.parse(response.body)["message"]
+    assert_equal "invalid email or password", JSON.parse(response.body)["message"]
   end
 
   test "returns current clinician for valid token" do
@@ -189,6 +190,46 @@ class BookingApiTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "lists patients for authenticated staff" do
+    get "/patients", headers: auth_headers(@clinician_token)
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal 1, body.length
+    assert_equal @patient.id, body.first["id"]
+    assert_equal @patient.name, body.first["name"]
+    assert_equal @patient.email, body.first["email"]
+  end
+
+  test "requires auth to list patients" do
+    get "/patients"
+
+    assert_response :unauthorized
+  end
+
+  test "creates a patient" do
+    post "/patients",
+         params: { name: "Jamie Patient", email: "jamie@example.com" },
+         headers: auth_headers(@clinician_token),
+         as: :json
+
+    assert_response :created
+    body = JSON.parse(response.body)
+    assert_equal "Jamie Patient", body["name"]
+    assert_equal "jamie@example.com", body["email"]
+    assert body["id"].present?
+    assert Patient.exists?(id: body["id"], name: "Jamie Patient")
+  end
+
+  test "rejects duplicate patient email" do
+    post "/patients",
+         params: { name: "Alex Duplicate", email: @patient.email },
+         headers: auth_headers(@clinician_token),
+         as: :json
+
+    assert_response :bad_request
+  end
+
   test "clinician books an appointment on own slot" do
     post "/appointments",
          params: { patientId: @patient.id, slotId: @slot.id },
@@ -198,6 +239,7 @@ class BookingApiTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = JSON.parse(response.body)
     assert_equal @patient.id, body["patientId"]
+    assert_equal @patient.name, body["patientName"]
     assert_equal @slot.id, body["slotId"]
     assert_equal false, body["slot"]["isAvailable"]
     assert_not @slot.reload.is_available

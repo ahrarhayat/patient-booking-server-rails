@@ -1,9 +1,9 @@
 class AuthService
   class << self
-    def login(name:, password:)
-      clinician = Clinician.find_by(name: name)
+    def login(email:, password:)
+      clinician = Clinician.find_by(email: email.to_s.strip.downcase)
       unless clinician&.authenticate(password)
-        raise AppError.new("invalid name or password", status: :unauthorized)
+        raise AppError.new("invalid email or password", status: :unauthorized)
       end
 
       {
