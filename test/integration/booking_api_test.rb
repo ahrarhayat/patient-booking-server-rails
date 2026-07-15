@@ -11,15 +11,16 @@ end
 
 class AuthApiTest < ActionDispatch::IntegrationTest
   setup do
+    uid = SecureRandom.hex(4)
     @clinician = Clinician.create!(
-      name: "Dr. Sam Auth",
-      email: "sam-auth@clinic.example.com",
+      name: "Dr. Sam Auth #{uid}",
+      email: "sam-auth-#{uid}@clinic.example.com",
       password: "password123",
       role: :clinician
     )
     @admin = Clinician.create!(
-      name: "Admin Auth",
-      email: "admin-auth@clinic.example.com",
+      name: "Admin Auth #{uid}",
+      email: "admin-auth-#{uid}@clinic.example.com",
       password: "admin123",
       role: :admin
     )
@@ -56,11 +57,14 @@ class AuthApiTest < ActionDispatch::IntegrationTest
 
   test "admin can create a clinician" do
     token = AuthToken.issue(@admin)
+    uid = SecureRandom.hex(4)
+    name = "Dr. New Clinician #{uid}"
+    email = "new-#{uid}@clinic.example.com"
 
     post "/clinicians",
          params: {
-           name: "Dr. New Clinician",
-           email: "new@clinic.example.com",
+           name: name,
+           email: email,
            password: "password123"
          },
          headers: { "Authorization" => "Bearer #{token}" },
@@ -68,19 +72,20 @@ class AuthApiTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     body = JSON.parse(response.body)
-    assert_equal "Dr. New Clinician", body["name"]
-    assert_equal "new@clinic.example.com", body["email"]
+    assert_equal name, body["name"]
+    assert_equal email, body["email"]
     assert_equal "clinician", body["role"]
-    assert Clinician.exists?(name: "Dr. New Clinician")
+    assert Clinician.exists?(name: name)
   end
 
   test "clinician cannot create a clinician" do
     token = AuthToken.issue(@clinician)
+    uid = SecureRandom.hex(4)
 
     post "/clinicians",
          params: {
-           name: "Dr. New Clinician",
-           email: "new@clinic.example.com",
+           name: "Dr. New Clinician #{uid}",
+           email: "new-#{uid}@clinic.example.com",
            password: "password123"
          },
          headers: { "Authorization" => "Bearer #{token}" },
@@ -90,10 +95,12 @@ class AuthApiTest < ActionDispatch::IntegrationTest
   end
 
   test "create clinician requires auth" do
+    uid = SecureRandom.hex(4)
+
     post "/clinicians",
          params: {
-           name: "Dr. New Clinician",
-           email: "new@clinic.example.com",
+           name: "Dr. New Clinician #{uid}",
+           email: "new-#{uid}@clinic.example.com",
            password: "password123"
          },
          as: :json
@@ -104,28 +111,27 @@ end
 
 class BookingApiTest < ActionDispatch::IntegrationTest
   setup do
-    @patient = Patient.create!(id: "a0000000-0000-4000-8000-000000000001", name: "Alex", email: "alex@example.com")
+    uid = SecureRandom.hex(4)
+    @patient = Patient.create!(name: "Alex", email: "alex-#{uid}@example.com")
     @clinician = Clinician.create!(
-      id: "b0000000-0000-4000-8000-000000000001",
-      name: "Dr. Sam",
-      email: "sam@clinic.example.com",
+      name: "Dr. Sam #{uid}",
+      email: "sam-#{uid}@clinic.example.com",
       password: "password123",
       role: :clinician
     )
     @other_clinician = Clinician.create!(
-      name: "Dr. Ada",
-      email: "ada@clinic.example.com",
+      name: "Dr. Ada #{uid}",
+      email: "ada-#{uid}@clinic.example.com",
       password: "password123",
       role: :clinician
     )
     @admin = Clinician.create!(
-      name: "Admin",
-      email: "admin@clinic.example.com",
+      name: "Admin #{uid}",
+      email: "admin-#{uid}@clinic.example.com",
       password: "admin123",
       role: :admin
     )
     @slot = Slot.create!(
-      id: "c1000000-0000-4000-8000-000000000001",
       clinician: @clinician,
       start_time: 1.day.from_now.change(hour: 9),
       end_time: 1.day.from_now.change(hour: 9, min: 30),
@@ -195,10 +201,10 @@ class BookingApiTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     body = JSON.parse(response.body)
-    assert_equal 1, body.length
-    assert_equal @patient.id, body.first["id"]
-    assert_equal @patient.name, body.first["name"]
-    assert_equal @patient.email, body.first["email"]
+    found = body.find { |item| item["id"] == @patient.id }
+    assert found, "expected patient #{@patient.id} in list"
+    assert_equal @patient.name, found["name"]
+    assert_equal @patient.email, found["email"]
   end
 
   test "requires auth to list patients" do
@@ -208,15 +214,17 @@ class BookingApiTest < ActionDispatch::IntegrationTest
   end
 
   test "creates a patient" do
+    email = "jamie-#{SecureRandom.hex(4)}@example.com"
+
     post "/patients",
-         params: { name: "Jamie Patient", email: "jamie@example.com" },
+         params: { name: "Jamie Patient", email: email },
          headers: auth_headers(@clinician_token),
          as: :json
 
     assert_response :created
     body = JSON.parse(response.body)
     assert_equal "Jamie Patient", body["name"]
-    assert_equal "jamie@example.com", body["email"]
+    assert_equal email, body["email"]
     assert body["id"].present?
     assert Patient.exists?(id: body["id"], name: "Jamie Patient")
   end
