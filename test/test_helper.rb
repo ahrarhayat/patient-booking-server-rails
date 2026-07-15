@@ -5,7 +5,7 @@ require "rails/test_help"
 
 module ActiveSupport
   class TestCase
-    parallelize(workers: :number_of_processors)
-    fixtures :all
+    # Keep this suite single-process. Parallel workers share one Postgres DB when
+    # per-worker DBs are not provisioned, which breaks unique email/name setup.
   end
 end
