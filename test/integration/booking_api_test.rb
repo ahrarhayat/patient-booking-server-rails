@@ -7,6 +7,22 @@ class HealthControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal({ "status" => "ok", "database" => "connected" }, JSON.parse(response.body))
   end
+
+  test "root path returns the same health payload" do
+    get "/"
+
+    assert_response :success
+    assert_equal({ "status" => "ok", "database" => "connected" }, JSON.parse(response.body))
+  end
+
+  test "returns rails and ruby versions" do
+    get "/json/version"
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal Rails.version, body["rails"]
+    assert_equal RUBY_VERSION, body["ruby"]
+  end
 end
 
 class AuthApiTest < ActionDispatch::IntegrationTest

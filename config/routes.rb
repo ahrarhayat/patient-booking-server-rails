@@ -1,5 +1,7 @@
 Rails.application.routes.draw do
+  root "health#show"
   get "health", to: "health#show"
+  get "json/version", to: "health#version"
 
   post "auth/login", to: "auth#create"
   get "auth/me", to: "auth#me"
